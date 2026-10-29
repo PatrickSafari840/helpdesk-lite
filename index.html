@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HelpDesk Lite · IT ticketing with SLAs</title>
+<meta name="description" content="A lightweight IT help desk: ITIL-style priority matrix, SLA timers, Kanban board, metrics and a troubleshooting knowledge base.">
+<meta name="theme-color" content="#0d1424">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d1424'/%3E%3Cpath d='M16 34a16 16 0 0 1 32 0' fill='none' stroke='%2322c3a6' stroke-width='5' stroke-linecap='round'/%3E%3Crect x='12' y='32' width='9' height='14' rx='3' fill='%2322c3a6'/%3E%3Crect x='43' y='32' width='9' height='14' rx='3' fill='%2322c3a6'/%3E%3C/svg%3E">
+<meta property="og:title" content="HelpDesk Lite — IT ticketing with SLAs">
+<meta property="og:description" content="Kanban ticket board, priority matrix, SLA timers, metrics and a knowledge base. Built by Patrick Safari.">
+<style>
+:root{
+  --bg:#f3f5f9; --panel:#fff; --panel-2:#f8fafc; --ink:#0d1424; --muted:#5d6984; --line:#e1e6ef;
+  --accent:#0f9f87; --accent-2:#dff5f0; --indigo:#4f5bd5;
+  --p1:#d93b3b; --p2:#e57b1e; --p3:#c99a06; --p4:#5d6984;
+  --ok:#16a34a; --warn:#d97706; --bad:#dc2626;
+  --radius:14px; --shadow:0 12px 30px -20px rgba(13,20,36,.5);
+  --font:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+:root[data-theme="dark"]{ --bg:#0b1020; --panel:#121a2e; --panel-2:#0f1628; --ink:#e7ecf6; --muted:#97a3bd; --line:#223052; --accent:#22c3a6; --accent-2:#11332e; --indigo:#7c86ff; --shadow:0 12px 30px -20px rgba(0,0,0,.8); }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{width:min(1280px,100% - 32px);margin-inline:auto}
+header{background:var(--ink);color:#fff}
+:root[data-theme="dark"] header{background:#070b16;border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:14px;min-height:64px;flex-wrap:wrap;padding:8px 0}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem;white-space:nowrap}
+.brand svg{width:30px;height:30px}
+.brand small{font-weight:500;opacity:.65;font-size:.78rem;margin-left:4px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs button{border:0;background:none;color:#c8d0e4;padding:8px 13px;border-radius:9px;font-weight:600;cursor:pointer}
+.tabs button[aria-selected="true"]{background:rgba(255,255,255,.12);color:#fff}
+.spacer{flex:1}
+.seg{display:flex;border:1px solid rgba(255,255,255,.2);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:none;color:#c8d0e4;padding:5px 10px;font-size:.75rem;font-weight:700;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#04201b}
+.iconbtn{border:1px solid rgba(255,255,255,.2);background:none;color:#fff;border-radius:999px;width:32px;height:32px;cursor:pointer}
+main{padding:22px 0 40px}
+section[hidden]{display:none}
+h2{font-size:1.3rem;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:2px 0 16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+/* Board */
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
+.filters input,.filters select{padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.filters input{min-width:220px;flex:1;max-width:340px}
+.btn{display:inline-flex;align-items:center;gap:7px;border:0;border-radius:10px;padding:9px 14px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff}
+:root[data-theme="dark"] .btn{color:#04201b}
+.btn.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
+.board{display:grid;grid-template-columns:repeat(4,minmax(240px,1fr));gap:14px;overflow-x:auto;padding-bottom:6px}
+.col{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--radius);padding:10px;min-height:300px;transition:background .15s}
+.col.over{background:var(--accent-2)}
+.col h3{font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:flex;justify-content:space-between;padding:4px 6px 10px}
+.col h3 b{background:var(--line);color:var(--ink);border-radius:999px;padding:0 8px;font-size:.75rem}
+.tk{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--p4);border-radius:10px;padding:10px 11px;margin-bottom:9px;cursor:grab;box-shadow:0 2px 6px -4px rgba(0,0,0,.3)}
+.tk:active{cursor:grabbing}
+.tk[data-p="1"]{border-left-color:var(--p1)} .tk[data-p="2"]{border-left-color:var(--p2)} .tk[data-p="3"]{border-left-color:var(--p3)}
+.tk .top{display:flex;justify-content:space-between;gap:6px;font-size:.75rem;color:var(--muted);font-family:var(--mono)}
+.tk b{display:block;font-size:.93rem;line-height:1.3;margin:4px 0 6px}
+.tk .meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-size:.75rem}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:999px;font-weight:700;font-size:.72rem;background:var(--line);color:var(--ink)}
+.chip.p1{background:#fde4e4;color:var(--p1)} .chip.p2{background:#fdeedd;color:var(--p2)} .chip.p3{background:#fbf3d0;color:#8a6a00} .chip.p4{background:var(--line);color:var(--muted)}
+:root[data-theme="dark"] .chip.p1{background:#3b1717} :root[data-theme="dark"] .chip.p2{background:#3a2611} :root[data-theme="dark"] .chip.p3{background:#352d0b;color:#f0c94a}
+.sla{font-family:var(--mono);font-size:.72rem;font-weight:700;padding:1px 7px;border-radius:6px}
+.sla.ok{background:#dcfce7;color:#166534} .sla.warn{background:#fef3c7;color:#92400e} .sla.bad{background:#fee2e2;color:#991b1b} .sla.done{background:var(--line);color:var(--muted)}
+:root[data-theme="dark"] .sla.ok{background:#12361f;color:#86efac} :root[data-theme="dark"] .sla.warn{background:#3a2a0a;color:#fcd34d} :root[data-theme="dark"] .sla.bad{background:#3b1414;color:#fca5a5}
+.who{margin-left:auto;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:.68rem;font-weight:800;color:#fff;background:var(--indigo)}
+/* New ticket */
+.new{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;align-items:start}
+.formcard{padding:18px;display:grid;gap:12px}
+label.f{display:grid;gap:5px;font-size:.85rem;font-weight:600;color:var(--muted)}
+label.f input,label.f select,label.f textarea{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);color:var(--ink);font-weight:400;font-size:.95rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.matrix{padding:18px}
+.matrix table{width:100%;border-collapse:separate;border-spacing:4px;font-size:.82rem;text-align:center}
+.matrix th{color:var(--muted);font-weight:600;padding:4px}
+.matrix td{padding:10px 4px;border-radius:8px;font-weight:800;cursor:pointer;border:2px solid transparent}
+.matrix td.sel{border-color:var(--ink)}
+.m1{background:#fde4e4;color:var(--p1)} .m2{background:#fdeedd;color:var(--p2)} .m3{background:#fbf3d0;color:#8a6a00} .m4{background:var(--line);color:var(--muted)}
+.slatable{width:100%;font-size:.85rem;margin-top:12px;border-collapse:collapse}
+.slatable td{padding:5px 2px;border-top:1px solid var(--line)}
+/* Metrics */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.kpi{padding:16px}
+.kpi span{font-size:.8rem;color:var(--muted);font-weight:600}
+.kpi strong{display:block;font-size:1.7rem;letter-spacing:-.02em;margin-top:2px}
+.kpi small{color:var(--muted);font-size:.78rem}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.chartcard{padding:16px}
+.chartcard h3{font-size:.95rem;margin-bottom:10px}
+.hbar{display:grid;grid-template-columns:140px 1fr 40px;gap:8px;align-items:center;font-size:.85rem;margin-bottom:8px}
+.hbar div{height:10px;background:var(--line);border-radius:6px;overflow:hidden}
+.hbar i{display:block;height:100%;background:var(--indigo);border-radius:6px}
+.hbar b{text-align:right;font-variant-numeric:tabular-nums}
+svg.spark{width:100%;height:160px}
+svg.spark text{font-size:10px;fill:var(--muted)}
+/* KB */
+.kb{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.art{padding:16px}
+.art h3{font-size:1rem;display:flex;gap:10px;align-items:flex-start}
+.art h3 i{font-style:normal;font-size:1.3rem;line-height:1}
+.art .tag{font-size:.72rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:6px 0 8px}
+.art ol{padding-left:20px;font-size:.9rem;display:grid;gap:4px}
+/* Drawer */
+.scrim{position:fixed;inset:0;background:rgba(5,8,16,.45);opacity:0;pointer-events:none;transition:.2s;z-index:40}
+.scrim.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);background:var(--panel);z-index:41;transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column;border-left:1px solid var(--line)}
+.drawer.open{transform:none}
+.drawer header{background:none;color:var(--ink);padding:18px 20px;border-bottom:1px solid var(--line)}
+.drawer .body{padding:18px 20px;overflow:auto;flex:1;display:grid;gap:14px;align-content:start}
+.drawer .close{float:right;border:0;background:none;font-size:1.4rem;cursor:pointer;color:var(--muted)}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 10px;font-size:.88rem}
+.kv span{color:var(--muted)}
+.kv select{padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);color:var(--ink)}
+.notes{display:grid;gap:8px}
+.note{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:.86rem}
+.note time{display:block;color:var(--muted);font-size:.72rem;font-family:var(--mono)}
+.suggest{background:var(--accent-2);border-radius:10px;padding:10px 12px;font-size:.86rem}
+.suggest a{color:inherit;font-weight:700}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;opacity:0;transition:.25s;z-index:60;pointer-events:none;width:max-content;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translateX(-50%)}
+footer{color:var(--muted);font-size:.82rem;text-align:center;padding:10px 0 26px}
+footer a{color:inherit}
+@media (max-width:900px){ .new,.charts{grid-template-columns:1fr} .kpis{grid-template-columns:repeat(2,1fr)} .board{grid-template-columns:repeat(4,82vw);scroll-snap-type:x mandatory} .col{scroll-snap-align:start} }
+@media (max-width:640px){ .tabs{order:5;width:100%;flex-wrap:nowrap;overflow-x:auto} .tabs button{white-space:nowrap} .hbar{grid-template-columns:110px 1fr 32px} }
+@media (max-width:520px){ .row2{grid-template-columns:1fr} .brand small{display:none} .filters input{min-width:0;max-width:none;width:100%} }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap bar">
+    <div class="brand"><svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#18233d"/><path d="M16 34a16 16 0 0 1 32 0" fill="none" stroke="#22c3a6" stroke-width="5" stroke-linecap="round"/><rect x="12" y="32" width="9" height="14" rx="3" fill="#22c3a6"/><rect x="43" y="32" width="9" height="14" rx="3" fill="#22c3a6"/></svg>HelpDesk Lite<small data-i="tag">IT service desk</small></div>
+    <nav class="tabs" role="tablist">
+      <button data-tab="board" data-i="tBoard">Board</button>
+      <button data-tab="new" data-i="tNew">New ticket</button>
+      <button data-tab="metrics" data-i="tMetrics">Metrics</button>
+      <button data-tab="kb" data-i="tKb">Knowledge base</button>
+    </nav>
+    <span class="spacer"></span>
+    <div class="seg" role="group" aria-label="Language"><button data-lang="en">EN</button><button data-lang="fr">FR</button></div>
+    <button class="iconbtn" id="themeBtn" aria-label="Theme">◐</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="board">
+    <h2 data-i="boardTitle">Ticket board</h2>
+    <p class="sub" data-i="boardSub">Drag a ticket to change its status. Click it for details. SLA timers show time left before the resolution target.</p>
+    <div class="filters">
+      <input id="q" type="search" data-ph="searchPh" placeholder="Search tickets, people…">
+      <select id="fp"><option value="" data-i="allP">All priorities</option><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option><option value="4">P4</option></select>
+      <select id="fa"><option value="" data-i="allA">Everyone</option></select>
+      <span class="spacer"></span>
+      <button class="btn" data-goto="new">+ <span data-i="tNew">New ticket</span></button>
+    </div>
+    <div class="board" id="boardCols"></div>
+  </section>
+
+  <section id="new" hidden>
+    <h2 data-i="newTitle">Log a new ticket</h2>
+    <p class="sub" data-i="newSub">Priority comes from impact × urgency (ITIL priority matrix). It sets the SLA target automatically.</p>
+    <div class="new">
+      <form class="card formcard" id="newForm">
+        <label class="f"><span data-i="fTitle">Short summary</span><input name="title" required maxlength="90" data-ph="phTitle" placeholder="e.g. Printer on 2nd floor shows offline"></label>
+        <div class="row2">
+          <label class="f"><span data-i="fReq">Requester</span><input name="req" required data-ph="phReq" placeholder="Name"></label>
+          <label class="f"><span data-i="fDept">Department</span><select name="dept"><option>Finance</option><option>Sales</option><option>Operations</option><option>HR</option><option>Management</option></select></label>
+        </div>
+        <div class="row2">
+          <label class="f"><span data-i="fCat">Category</span><select name="cat" id="catSel"></select></label>
+          <label class="f"><span data-i="fAssign">Assign to</span><select name="who" id="whoSel"></select></label>
+        </div>
+        <div class="row2">
+          <label class="f"><span data-i="fImpact">Impact</span><select name="impact" id="impact"><option value="1" data-i="imp1">One person</option><option value="2" data-i="imp2">A team</option><option value="3" data-i="imp3">Whole company</option></select></label>
+          <label class="f"><span data-i="fUrg">Urgency</span><select name="urg" id="urg"><option value="1" data-i="urg1">Can wait</option><option value="2" data-i="urg2">Work slowed down</option><option value="3" data-i="urg3">Work stopped</option></select></label>
+        </div>
+        <label class="f"><span data-i="fDesc">What happened?</span><textarea name="desc" rows="4" data-ph="phDesc" placeholder="Steps, error message, since when…"></textarea></label>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn" data-i="create">Create ticket</button><span id="prioOut" class="sub" style="margin:0"></span></div>
+      </form>
+      <aside class="card matrix">
+        <h3 style="font-size:1rem;margin-bottom:8px" data-i="matrixTitle">Priority matrix</h3>
+        <table id="matrix"></table>
+        <table class="slatable" id="slaTable"></table>
+      </aside>
+    </div>
+  </section>
+
+  <section id="metrics" hidden>
+    <h2 data-i="metTitle">Service metrics</h2>
+    <p class="sub" data-i="metSub">Last 30 days. These are the numbers an IT manager reviews every week.</p>
+    <div class="kpis">
+      <div class="card kpi"><span data-i="mOpen">Open tickets</span><strong id="mOpen">–</strong><small id="mOpenSub"></small></div>
+      <div class="card kpi"><span data-i="mSla">Resolved within SLA</span><strong id="mSla">–</strong><small id="mSlaSub"></small></div>
+      <div class="card kpi"><span data-i="mMttr">Mean time to resolve</span><strong id="mMttr">–</strong><small id="mMttrSub"></small></div>
+      <div class="card kpi"><span data-i="mBreach">Breaching now</span><strong id="mBreach">–</strong><small data-i="mBreachSub">open tickets past SLA</small></div>
+    </div>
+    <div class="charts">
+      <div class="card chartcard"><h3 data-i="cCat">Tickets by category</h3><div id="catBars"></div></div>
+      <div class="card chartcard"><h3 data-i="cTrend">Opened vs resolved, last 14 days</h3><svg class="spark" id="trend"></svg></div>
+    </div>
+  </section>
+
+  <section id="kb" hidden>
+    <h2 data-i="kbTitle">Knowledge base</h2>
+    <p class="sub" data-i="kbSub">First-line fixes for the most common issues. Tickets suggest the matching article automatically.</p>
+    <div class="filters"><input id="kbq" type="search" data-ph="kbPh" placeholder="Search articles…"></div>
+    <div class="kb" id="kbList"></div>
+  </section>
+</main>
+<footer><span data-i="foot">Demo data is stored in your browser only.</span> <a href="#" id="resetDemo" data-i="resetDemo">Reset demo</a> · <a href="https://github.com/PatrickSafari840/helpdesk-lite">GitHub</a> · <span data-i="by">Built by</span> <a href="https://patricksafari840.github.io/patrick_safari_portfolio/">Patrick Safari</a></footer>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true"></aside>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+'use strict';
+const I18N = {
+ en:{tag:'IT service desk',tBoard:'Board',tNew:'New ticket',tMetrics:'Metrics',tKb:'Knowledge base',boardTitle:'Ticket board',boardSub:'Drag a ticket to change its status. Click it for details. SLA timers show time left before the resolution target.',searchPh:'Search tickets, people…',allP:'All priorities',allA:'Everyone',newTitle:'Log a new ticket',newSub:'Priority comes from impact × urgency (ITIL priority matrix). It sets the SLA target automatically.',fTitle:'Short summary',phTitle:'e.g. Printer on 2nd floor shows offline',fReq:'Requester',phReq:'Name',fDept:'Department',fCat:'Category',fAssign:'Assign to',fImpact:'Impact',imp1:'One person',imp2:'A team',imp3:'Whole company',fUrg:'Urgency',urg1:'Can wait',urg2:'Work slowed down',urg3:'Work stopped',fDesc:'What happened?',phDesc:'Steps, error message, since when…',create:'Create ticket',matrixTitle:'Priority matrix',metTitle:'Service metrics',metSub:'Last 30 days. These are the numbers an IT manager reviews every week.',mOpen:'Open tickets',mSla:'Resolved within SLA',mMttr:'Mean time to resolve',mBreach:'Breaching now',mBreachSub:'open tickets past SLA',cCat:'Tickets by category',cTrend:'Opened vs resolved, last 14 days',kbTitle:'Knowledge base',kbSub:'First-line fixes for the most common issues. Tickets suggest the matching article automatically.',kbPh:'Search articles…',foot:'Demo data is stored in your browser only.',resetDemo:'Reset demo',by:'Built by',
+  s_new:'New',s_prog:'In progress',s_wait:'Waiting on user',s_done:'Resolved',left:'left',over:'over',met:'met',resolvedIn:'resolved in',urgImp:'Urgency ↓ / Impact →',target:'Resolution target',created:'Ticket created',moved:'Moved to',assigned:'Assigned to',noteAdded:'Note added',addNote:'Add a note…',save:'Add note',requester:'Requester',dept:'Department',cat:'Category',prio:'Priority',status:'Status',assignee:'Assignee',opened:'Opened',sla:'SLA',history:'Activity',suggested:'Suggested fix',willBe:'Will be',ofTotal:'of resolved',avgOver:'avg over',tickets:'tickets',hours:'h',resolved:'resolved',opened2:'opened',reset:'Demo reset',cats:{hw:'Hardware',net:'Network',sw:'Software',acc:'Account & access',mail:'Email',sec:'Security'}},
+ fr:{tag:'Service desk IT',tBoard:'Tableau',tNew:'Nouveau ticket',tMetrics:'Indicateurs',tKb:'Base de connaissances',boardTitle:'Tableau des tickets',boardSub:"Glissez un ticket pour changer son statut. Cliquez dessus pour les détails. Les minuteurs SLA indiquent le temps restant avant l'objectif de résolution.",searchPh:'Rechercher tickets, personnes…',allP:'Toutes priorités',allA:'Tout le monde',newTitle:'Ouvrir un nouveau ticket',newSub:"La priorité vient de l'impact × l'urgence (matrice ITIL). Elle fixe automatiquement l'objectif SLA.",fTitle:'Résumé',phTitle:"ex. L'imprimante du 2e étage est hors ligne",fReq:'Demandeur',phReq:'Nom',fDept:'Service',fCat:'Catégorie',fAssign:'Assigner à',fImpact:'Impact',imp1:'Une personne',imp2:'Une équipe',imp3:"Toute l'entreprise",fUrg:'Urgence',urg1:'Peut attendre',urg2:'Travail ralenti',urg3:'Travail bloqué',fDesc:"Que s'est-il passé ?",phDesc:"Étapes, message d'erreur, depuis quand…",create:'Créer le ticket',matrixTitle:'Matrice de priorité',metTitle:'Indicateurs de service',metSub:'30 derniers jours. Les chiffres qu’un responsable IT suit chaque semaine.',mOpen:'Tickets ouverts',mSla:'Résolus dans le SLA',mMttr:'Temps moyen de résolution',mBreach:'En dépassement',mBreachSub:'tickets ouverts hors SLA',cCat:'Tickets par catégorie',cTrend:'Ouverts vs résolus, 14 derniers jours',kbTitle:'Base de connaissances',kbSub:'Solutions de premier niveau pour les problèmes courants. Les tickets proposent automatiquement l’article adapté.',kbPh:'Rechercher un article…',foot:'Les données démo restent dans votre navigateur.',resetDemo:'Réinitialiser la démo',by:'Créé par',
+  s_new:'Nouveau',s_prog:'En cours',s_wait:"En attente de l'utilisateur",s_done:'Résolu',left:'restant',over:'de retard',met:'respecté',resolvedIn:'résolu en',urgImp:'Urgence ↓ / Impact →',target:'Objectif de résolution',created:'Ticket créé',moved:'Déplacé vers',assigned:'Assigné à',noteAdded:'Note ajoutée',addNote:'Ajouter une note…',save:'Ajouter',requester:'Demandeur',dept:'Service',cat:'Catégorie',prio:'Priorité',status:'Statut',assignee:'Responsable',opened:'Ouvert',sla:'SLA',history:'Activité',suggested:'Solution suggérée',willBe:'Sera',ofTotal:'des résolus',avgOver:'moyenne sur',tickets:'tickets',hours:'h',resolved:'résolus',opened2:'ouverts',reset:'Démo réinitialisée',cats:{hw:'Matériel',net:'Réseau',sw:'Logiciel',acc:'Compte et accès',mail:'Messagerie',sec:'Sécurité'}}
+};
+const KB = [
+ {id:'wifi',cat:'net',ico:'📶',en:['Cannot connect to Wi-Fi or the internet',['Check other devices: if none connect, restart the router (unplug 30 s).','Forget the network and reconnect with the right password.','Run ipconfig /release then /renew (Windows) or toggle Wi-Fi (macOS).','Check the IP: 169.254.x.x means no DHCP lease, so check the router or DHCP server.','Try ping 8.8.8.8 then ping google.com: if only the name fails, it is DNS (set 8.8.8.8 / 1.1.1.1).']],fr:['Impossible de se connecter au Wi-Fi ou à internet',["Vérifiez d'autres appareils : si aucun ne se connecte, redémarrez le routeur (débrancher 30 s).",'Oubliez le réseau et reconnectez-vous avec le bon mot de passe.','Lancez ipconfig /release puis /renew (Windows) ou coupez/rallumez le Wi-Fi (macOS).','Vérifiez l’IP : 169.254.x.x = pas de bail DHCP, contrôlez le routeur ou le serveur DHCP.','Testez ping 8.8.8.8 puis ping google.com : si seul le nom échoue, c’est le DNS (mettre 8.8.8.8 / 1.1.1.1).']]},
+ {id:'printer',cat:'hw',ico:'🖨️',en:['Printer shows offline or jobs are stuck',['Check power, paper, toner and the network cable or Wi-Fi light.','Print a configuration page from the printer and check its IP address.','Ping the printer IP from the PC.','Clear the queue: restart the Print Spooler service.','Remove and re-add the printer using its IP (TCP/IP port).']],fr:["L'imprimante est hors ligne ou les impressions bloquent",['Vérifiez alimentation, papier, toner et câble réseau ou voyant Wi-Fi.',"Imprimez une page de configuration et notez l'adresse IP.","Faites un ping de l'IP de l'imprimante depuis le PC.","Videz la file : redémarrez le service Spouleur d'impression.","Supprimez puis rajoutez l'imprimante par son IP (port TCP/IP)."]]},
+ {id:'slow',cat:'hw',ico:'🐢',en:['Computer is very slow',['Open Task Manager / Activity Monitor and sort by CPU, memory and disk.','Restart: many slow PCs have not rebooted in weeks.','Free disk space (keep at least 15% free) and empty temp files.','Disable unneeded startup apps.','Run a malware scan; check disk health (SMART) if the disk is at 100%.']],fr:['Ordinateur très lent',['Ouvrez le Gestionnaire des tâches / Moniteur d’activité, triez par CPU, mémoire et disque.','Redémarrez : beaucoup de PC lents ne l’ont pas été depuis des semaines.','Libérez de l’espace disque (au moins 15 %) et videz les fichiers temporaires.','Désactivez les applications inutiles au démarrage.','Lancez un antivirus ; vérifiez la santé du disque (SMART) s’il est à 100 %.']]},
+ {id:'password',cat:'acc',ico:'🔑',en:['Forgotten password or locked account',['Verify the user’s identity before any reset (call back on a known number).','Unlock the account in the directory (e.g. Active Directory) if locked.','Set a temporary password and force a change at next login.','Check the account is not disabled or expired.','Remind the user about MFA and a password manager.']],fr:['Mot de passe oublié ou compte verrouillé',['Vérifiez l’identité de l’utilisateur avant toute réinitialisation (rappel sur un numéro connu).','Déverrouillez le compte dans l’annuaire (ex. Active Directory).','Définissez un mot de passe temporaire à changer à la prochaine connexion.','Vérifiez que le compte n’est ni désactivé ni expiré.','Rappelez la MFA et l’usage d’un gestionnaire de mots de passe.']]},
+ {id:'mail',cat:'mail',ico:'✉️',en:['Email not sending or not syncing',['Check webmail: if it works there, the problem is the device or app.','Check internet access and that the mailbox is not full.','Look at the Outbox for a stuck large attachment.','Re-enter the password / re-add the account.','Check server settings (IMAP/SMTP ports, SSL) or the Exchange/Microsoft 365 status page.']],fr:['Les e-mails ne partent pas ou ne se synchronisent pas',['Testez le webmail : si ça marche, le problème vient de l’appareil ou de l’application.','Vérifiez internet et que la boîte n’est pas pleine.','Regardez la boîte d’envoi : une grosse pièce jointe peut bloquer.','Ressaisissez le mot de passe / rajoutez le compte.','Vérifiez les paramètres serveur (ports IMAP/SMTP, SSL) ou l’état du service Microsoft 365.']]},
+ {id:'phish',cat:'sec',ico:'🎣',en:['Suspicious email or possible phishing',['Do not click links or open attachments; do not reply.','Check the real sender address and hover links to see the true URL.','Report it to IT and delete it; block the sender.','If the user clicked or entered a password: reset it at once and sign out all sessions.','Scan the device and watch the account for unusual sign-ins.']],fr:['E-mail suspect ou hameçonnage possible',['Ne cliquez pas sur les liens, n’ouvrez pas les pièces jointes, ne répondez pas.','Vérifiez la vraie adresse de l’expéditeur et survolez les liens pour voir l’URL réelle.','Signalez-le au service IT, supprimez-le et bloquez l’expéditeur.','Si l’utilisateur a cliqué ou saisi un mot de passe : changez-le immédiatement et fermez toutes les sessions.','Analysez l’appareil et surveillez les connexions inhabituelles.']]},
+ {id:'software',cat:'sw',ico:'🧩',en:['Application crashes or will not open',['Note the exact error message and when it started (after an update?).','Restart the app, then the computer.','Install pending updates for the app and the OS.','Repair or reinstall the application.','Check the event log / crash reports and test with another user profile.']],fr:["Une application plante ou ne s'ouvre pas",["Notez le message d'erreur exact et depuis quand (après une mise à jour ?).","Redémarrez l'application, puis l'ordinateur.","Installez les mises à jour en attente de l'application et du système.","Réparez ou réinstallez l'application.","Consultez le journal d'événements / rapports de plantage et testez avec un autre profil."]]}
+];
+const KW = {wifi:/wi-?fi|internet|vpn|network|réseau|connect|shared drive|dns/, printer:/print|imprim/, slow:/slow|lent|freez|flicker/, password:/password|mot de passe|locked|verrouill|account|compte|access|accès/, mail:/mail|outbox|calendar|calendrier|mailbox/, phish:/phish|suspicious|suspect|link|lien|antivirus|usb|bank/, software:/crash|plante|excel|teams|update|licen|software|logiciel|form|pdf/};
+const DEFAULT_KB = {net:'wifi', acc:'password', mail:'mail', sec:'phish', sw:'software'};
+const STATUSES = ['new','prog','wait','done'];
+const SLA_H = {1:4, 2:8, 3:24, 4:72};
+const TEAM = ['Patrick S.','Grace M.','Jean K.'];
+const CATS = ['hw','net','sw','acc','mail','sec'];
+const H = 36e5, DAY = 24*H;
+
+const store = { get(k,d){ try{ const v = localStorage.getItem('hdl.'+k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }, set(k,v){ try{ localStorage.setItem('hdl.'+k, JSON.stringify(v)); }catch(e){} } };
+let lang = store.get('lang', (navigator.language||'').toLowerCase().startsWith('fr') ? 'fr' : 'en');
+let theme = store.get('theme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+let tickets = store.get('tickets', null);
+let seq = store.get('seq', 1000);
+const t = k => (I18N[lang][k] ?? I18N.en[k] ?? k);
+const catName = c => I18N[lang].cats[c] || c;
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const save = () => { store.set('tickets', tickets); store.set('seq', seq); };
+const prioOf = (imp, urg) => { const s = (+imp) + (+urg); return s >= 6 ? 1 : s === 5 ? 2 : s === 4 ? 3 : 4; };
+const initials = n => n.split(/\s+/).map(x => x[0]).join('').slice(0,2).toUpperCase();
+const fmtDur = ms => { const h = Math.abs(ms)/H; return h < 1 ? Math.round(h*60) + 'm' : h < 48 ? h.toFixed(h < 10 ? 1 : 0) + 'h' : (h/24).toFixed(1) + 'd'; };
+function toast(m){ const el = $('#toast'); el.textContent = m; el.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('show'), 1800); }
+function slaInfo(tk){
+  const due = tk.created + SLA_H[tk.p]*H;
+  if (tk.status === 'done'){ const ok = tk.resolved <= due; return {cls: ok ? 'done' : 'bad', txt: (ok ? '✓ ' + t('met') : '✗ ') + ' · ' + fmtDur(tk.resolved - tk.created)}; }
+  const left = due - Date.now(), total = SLA_H[tk.p]*H;
+  if (left < 0) return {cls:'bad', txt: fmtDur(left) + ' ' + t('over')};
+  return {cls: left < total*.25 ? 'warn' : 'ok', txt: fmtDur(left) + ' ' + t('left')};
+}
+
+/* ---------- Seed demo ---------- */
+function seed(){
+  let s = 11; const r = () => (s = (s*9301 + 49297) % 233280) / 233280;
+  const titles = {hw:['Laptop will not charge','Printer on 2nd floor offline','Monitor flickering','Very slow computer in accounts','Keyboard keys not responding'],net:['No internet in meeting room','Wi-Fi drops every few minutes','VPN will not connect from home','Cannot reach shared drive'],sw:['Excel crashes when opening report','Accounting software update failed','Teams has no sound','PDF editor licence expired'],acc:['Locked out after password change','New employee needs accounts','Cannot access HR folder'],mail:['Emails stuck in Outbox','Mailbox full warning','Shared calendar not syncing'],sec:['Suspicious email asking for bank details','Antivirus alert on USB stick','User clicked a strange link']};
+  const people = ['Amani B.','Esther N.','Josué M.','Neema K.','Olivier T.','Sifa A.','Daniel W.','Furaha L.'];
+  const depts = ['Finance','Sales','Operations','HR','Management'];
+  const out = []; const now = Date.now();
+  for (let i = 0; i < 46; i++){
+    const cat = CATS[Math.floor(r()*CATS.length)], list = titles[cat];
+    const imp = 1 + Math.floor(r()*3), urg = 1 + Math.floor(r()*3), p = prioOf(imp, urg);
+    const created = now - Math.floor(r()*28*DAY) - Math.floor(r()*6*H);
+    const age = now - created;
+    let status = age > 3*DAY ? 'done' : ['new','prog','wait','done','prog'][Math.floor(r()*5)];
+    let resolved = null;
+    if (status === 'done'){ const lim = SLA_H[p]*H; resolved = created + Math.min(age - H, lim*(.25 + r()*(r() < .82 ? .7 : 1.8))); if (resolved < created + 10*6e4) resolved = created + 20*6e4; }
+    const who = TEAM[Math.floor(r()*TEAM.length)];
+    out.push({id:'HD-' + (++seq), title:list[Math.floor(r()*list.length)], req:people[Math.floor(r()*people.length)], dept:depts[Math.floor(r()*depts.length)], cat, imp, urg, p, status, who, created, resolved, desc:'', log:[{t:created, k:'created'}].concat(resolved ? [{t:resolved, k:'moved', v:'done'}] : [])});
+  }
+  // a few fresh open ones so the board looks alive
+  [['Server room UPS beeping','hw',3,3,'new'],['Website contact form not sending','sw',2,2,'prog'],['Cannot print invoices','hw',2,3,'new'],['Password reset for Sifa','acc',1,2,'wait']].forEach(([title, cat, imp, urg, status], k) => {
+    const p = prioOf(imp, urg), created = now - (k + 1)*H*(p === 1 ? 1 : 2.5);
+    out.push({id:'HD-' + (++seq), title, req:people[k], dept:depts[k], cat, imp, urg, p, status, who:TEAM[k % 3], created, resolved:null, desc:'', log:[{t:created, k:'created'}]});
+  });
+  tickets = out.sort((a,b) => b.created - a.created); save();
+}
+if (!tickets) seed();
+
+/* ---------- Language / theme / tabs ---------- */
+function applyLang(){
+  document.documentElement.lang = lang;
+  $$('[data-i]').forEach(el => el.textContent = t(el.dataset.i));
+  $$('[data-ph]').forEach(el => el.placeholder = t(el.dataset.ph));
+  $$('[data-lang]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+  $('#catSel').innerHTML = CATS.map(c => `<option value="${c}">${catName(c)}</option>`).join('');
+  renderAll();
+}
+function applyTheme(){ document.documentElement.setAttribute('data-theme', theme); }
+$$('[data-lang]').forEach(b => b.addEventListener('click', () => { lang = b.dataset.lang; store.set('lang', lang); applyLang(); }));
+$('#themeBtn').addEventListener('click', () => { theme = theme === 'dark' ? 'light' : 'dark'; store.set('theme', theme); applyTheme(); });
+function showTab(id){ $$('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === id))); $$('main > section').forEach(s => s.hidden = s.id !== id); store.set('tab', id); if (id === 'metrics') renderMetrics(); }
+$$('[data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+$$('[data-goto]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.goto)));
+
+/* ---------- Board ---------- */
+$('#whoSel').innerHTML = TEAM.map(n => `<option>${n}</option>`).join('');
+$('#fa').insertAdjacentHTML('beforeend', TEAM.map(n => `<option>${n}</option>`).join(''));
+function renderBoard(){
+  const q = $('#q').value.toLowerCase(), fp = $('#fp').value, fa = $('#fa').value;
+  const vis = tickets.filter(tk => (!fp || String(tk.p) === fp) && (!fa || tk.who === fa) && (!q || (tk.id + ' ' + tk.title + ' ' + tk.req + ' ' + tk.dept + ' ' + catName(tk.cat)).toLowerCase().includes(q)));
+  $('#boardCols').innerHTML = STATUSES.map(st => {
+    let list = vis.filter(tk => tk.status === st);
+    list = st === 'done' ? list.sort((a,b) => b.resolved - a.resolved).slice(0, 12) : list.sort((a,b) => a.p - b.p || a.created - b.created);
+    const count = vis.filter(tk => tk.status === st).length;
+    return `<div class="col" data-col="${st}"><h3>${t('s_' + st)} <b>${count}</b></h3>${list.map(card).join('')}</div>`;
+  }).join('');
+}
+function card(tk){ const s = slaInfo(tk); return `<article class="tk" draggable="true" data-id="${tk.id}" data-p="${tk.p}"><div class="top"><span>${tk.id}</span><span>${catName(tk.cat)}</span></div><b>${esc(tk.title)}</b><div class="meta"><span class="chip p${tk.p}">P${tk.p}</span><span class="sla ${s.cls}">${s.txt}</span><span class="who" title="${esc(tk.who)}">${initials(tk.who)}</span></div></article>`; }
+['input','change'].forEach(ev => ['#q','#fp','#fa'].forEach(s => $(s).addEventListener(ev, renderBoard)));
+let dragId = null;
+$('#boardCols').addEventListener('dragstart', e => { const c = e.target.closest('.tk'); if (c){ dragId = c.dataset.id; e.dataTransfer.setData('text/plain', dragId); } });
+$('#boardCols').addEventListener('dragover', e => { const col = e.target.closest('.col'); if (col){ e.preventDefault(); $$('.col').forEach(c => c.classList.toggle('over', c === col)); } });
+$('#boardCols').addEventListener('dragleave', e => { if (!e.relatedTarget || !e.relatedTarget.closest('.col')) $$('.col').forEach(c => c.classList.remove('over')); });
+$('#boardCols').addEventListener('drop', e => { e.preventDefault(); const col = e.target.closest('.col'); $$('.col').forEach(c => c.classList.remove('over')); if (col && dragId) moveTo(dragId, col.dataset.col); dragId = null; });
+$('#boardCols').addEventListener('click', e => { const c = e.target.closest('.tk'); if (c) openDrawer(c.dataset.id); });
+function moveTo(id, st){
+  const tk = tickets.find(x => x.id === id); if (!tk || tk.status === st) return;
+  tk.status = st; tk.resolved = st === 'done' ? Date.now() : null; tk.log.push({t:Date.now(), k:'moved', v:st});
+  save(); renderAll(); toast(t('moved') + ' ' + t('s_' + st));
+  if ($('#drawer').classList.contains('open')) openDrawer(id);
+}
+
+/* ---------- Drawer ---------- */
+function openDrawer(id){
+  const tk = tickets.find(x => x.id === id); if (!tk) return;
+  const s = slaInfo(tk), txt = (tk.title + ' ' + (tk.desc || '')).toLowerCase(), art = KB.find(a => KW[a.id].test(txt)) || KB.find(a => a.cat === tk.cat && DEFAULT_KB[tk.cat] === a.id);
+  const logTxt = l => l.k === 'created' ? t('created') : l.k === 'moved' ? t('moved') + ' ' + t('s_' + l.v) : l.k === 'assigned' ? t('assigned') + ' ' + esc(l.v) : esc(l.v);
+  $('#drawer').innerHTML = `<header><button class="close" aria-label="Close">×</button><div style="font-family:var(--mono);font-size:.8rem;color:var(--muted)">${tk.id} · ${catName(tk.cat)}</div><h2 style="font-size:1.15rem;margin-top:4px">${esc(tk.title)}</h2></header>
+  <div class="body">
+    <div class="kv"><span>${t('requester')}</span><b>${esc(tk.req)} · ${esc(tk.dept)}</b><span>${t('prio')}</span><span><span class="chip p${tk.p}">P${tk.p}</span> <small style="color:var(--muted)">${t('target')}: ${SLA_H[tk.p]}h</small></span><span>${t('sla')}</span><span><span class="sla ${s.cls}">${s.txt}</span></span><span>${t('opened')}</span><span>${new Date(tk.created).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-GB', {dateStyle:'medium', timeStyle:'short'})}</span>
+    <span>${t('status')}</span><select id="dStatus">${STATUSES.map(st => `<option value="${st}" ${st === tk.status ? 'selected' : ''}>${t('s_' + st)}</option>`).join('')}</select>
+    <span>${t('assignee')}</span><select id="dWho">${TEAM.map(n => `<option ${n === tk.who ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+    ${tk.desc ? `<div class="note">${esc(tk.desc)}</div>` : ''}
+    ${art ? `<div class="suggest">💡 ${t('suggested')}: <a href="#" data-kb="${art.id}">${esc(art[lang][0])}</a></div>` : ''}
+    <div><h3 style="font-size:.9rem;margin-bottom:8px">${t('history')}</h3><div class="notes">${[...tk.log].reverse().map(l => `<div class="note"><time>${new Date(l.t).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-GB', {dateStyle:'short', timeStyle:'short'})}</time>${logTxt(l)}</div>`).join('')}</div></div>
+    <form id="noteForm" style="display:grid;gap:8px"><textarea rows="2" required placeholder="${t('addNote')}" style="padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)"></textarea><button class="btn" style="justify-self:start">${t('save')}</button></form>
+  </div>`;
+  $('#drawer').classList.add('open'); $('#scrim').classList.add('open'); $('#drawer').setAttribute('aria-hidden', 'false');
+  $('#drawer .close').onclick = closeDrawer;
+  $('#dStatus').onchange = e => moveTo(tk.id, e.target.value);
+  $('#dWho').onchange = e => { tk.who = e.target.value; tk.log.push({t:Date.now(), k:'assigned', v:tk.who}); save(); renderAll(); openDrawer(tk.id); };
+  $('#noteForm').onsubmit = e => { e.preventDefault(); const v = e.target.querySelector('textarea').value.trim(); if (!v) return; tk.log.push({t:Date.now(), k:'note', v}); save(); openDrawer(tk.id); toast(t('noteAdded')); };
+  const kbLink = $('#drawer [data-kb]'); if (kbLink) kbLink.onclick = e => { e.preventDefault(); closeDrawer(); showTab('kb'); $('#kbq').value = ''; renderKb(); setTimeout(() => { const el = document.getElementById('kb-' + kbLink.dataset.kb); if (el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.style.outline = '2px solid var(--accent)'; setTimeout(() => el.style.outline = '', 1800); } }, 50); };
+}
+function closeDrawer(){ $('#drawer').classList.remove('open'); $('#scrim').classList.remove('open'); $('#drawer').setAttribute('aria-hidden', 'true'); }
+$('#scrim').addEventListener('click', closeDrawer);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+/* ---------- New ticket ---------- */
+function renderMatrix(){
+  const imp = +$('#impact').value, urg = +$('#urg').value;
+  const names = {1:[t('imp1'),t('imp2'),t('imp3')]};
+  let h = `<tr><th style="text-align:left">${t('urgImp')}</th>${names[1].map(n => `<th>${n}</th>`).join('')}</tr>`;
+  [3,2,1].forEach(u => { h += `<tr><th style="text-align:left">${t('urg' + u)}</th>${[1,2,3].map(i => { const p = prioOf(i, u); return `<td class="m${p} ${i === imp && u === urg ? 'sel' : ''}" data-i2="${i}" data-u="${u}">P${p}</td>`; }).join('')}</tr>`; });
+  $('#matrix').innerHTML = h;
+  $('#slaTable').innerHTML = `<tr><td colspan="2" style="border:0;color:var(--muted);font-weight:600">${t('target')}</td></tr>` + [1,2,3,4].map(p => `<tr><td><span class="chip p${p}">P${p}</span></td><td style="text-align:right;font-family:var(--mono)">${SLA_H[p]} h</td></tr>`).join('');
+  const p = prioOf(imp, urg); $('#prioOut').innerHTML = `${t('willBe')} <span class="chip p${p}">P${p}</span> · ${t('target')} ${SLA_H[p]} h`;
+}
+$('#matrix').addEventListener('click', e => { const td = e.target.closest('td[data-i2]'); if (!td) return; $('#impact').value = td.dataset.i2; $('#urg').value = td.dataset.u; renderMatrix(); });
+['#impact','#urg'].forEach(s => $(s).addEventListener('change', renderMatrix));
+$('#newForm').addEventListener('submit', e => {
+  e.preventDefault(); const f = new FormData(e.target), now = Date.now();
+  const tk = {id:'HD-' + (++seq), title:f.get('title').trim(), req:f.get('req').trim(), dept:f.get('dept'), cat:f.get('cat'), imp:+f.get('impact'), urg:+f.get('urg'), p:prioOf(f.get('impact'), f.get('urg')), status:'new', who:f.get('who'), created:now, resolved:null, desc:f.get('desc').trim(), log:[{t:now, k:'created'}]};
+  tickets.unshift(tk); save(); e.target.reset(); renderMatrix(); renderAll(); showTab('board'); toast(t('created') + ' · ' + tk.id); setTimeout(() => openDrawer(tk.id), 300);
+});
+
+/* ---------- Metrics ---------- */
+function renderMetrics(){
+  const now = Date.now(), since = now - 30*DAY;
+  const open = tickets.filter(x => x.status !== 'done');
+  const res = tickets.filter(x => x.status === 'done' && x.resolved >= since);
+  const met = res.filter(x => x.resolved <= x.created + SLA_H[x.p]*H);
+  const mttr = res.length ? res.reduce((a,x) => a + (x.resolved - x.created), 0) / res.length : 0;
+  const breach = open.filter(x => now > x.created + SLA_H[x.p]*H);
+  $('#mOpen').textContent = open.length; $('#mOpenSub').textContent = [1,2,3,4].map(p => 'P' + p + ': ' + open.filter(x => x.p === p).length).join(' · ');
+  $('#mSla').textContent = res.length ? Math.round(met.length/res.length*100) + '%' : '–'; $('#mSlaSub').textContent = met.length + '/' + res.length + ' ' + t('ofTotal');
+  $('#mMttr').textContent = res.length ? fmtDur(mttr) : '–'; $('#mMttrSub').textContent = t('avgOver') + ' ' + res.length + ' ' + t('tickets');
+  $('#mBreach').textContent = breach.length; $('#mBreach').style.color = breach.length ? 'var(--bad)' : 'var(--ok)';
+  const recent = tickets.filter(x => x.created >= since), byCat = CATS.map(c => [c, recent.filter(x => x.cat === c).length]).sort((a,b) => b[1] - a[1]), mx = Math.max(1, ...byCat.map(x => x[1]));
+  $('#catBars').innerHTML = byCat.map(([c, n]) => `<div class="hbar"><span>${catName(c)}</span><div><i style="width:${n/mx*100}%"></i></div><b>${n}</b></div>`).join('');
+  // trend
+  const svg = $('#trend'), W = svg.clientWidth || 520, Hh = 160, pad = 22;
+  const start = new Date(); start.setHours(0,0,0,0); const days = [...Array(14)].map((_, i) => start.getTime() - (13 - i)*DAY);
+  const o = days.map(d => tickets.filter(x => x.created >= d && x.created < d + DAY).length), r = days.map(d => tickets.filter(x => x.resolved && x.resolved >= d && x.resolved < d + DAY).length);
+  const m = Math.max(1, ...o, ...r), X = i => pad + i*(W - 2*pad)/13, Y = v => Hh - pad - v*(Hh - 2*pad)/m;
+  const line = (arr, col) => `<polyline fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" points="${arr.map((v,i) => X(i).toFixed(1) + ',' + Y(v).toFixed(1)).join(' ')}"/>` + arr.map((v,i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="3" fill="${col}"><title>${v}</title></circle>`).join('');
+  svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`);
+  svg.innerHTML = `<line x1="${pad}" x2="${W - pad}" y1="${Hh - pad}" y2="${Hh - pad}" stroke="var(--line)"/>` + line(o, 'var(--indigo)') + line(r, 'var(--accent)') + days.map((d,i) => i % 2 ? '' : `<text x="${X(i)}" y="${Hh - 6}" text-anchor="middle">${new Date(d).getDate()}</text>`).join('') + `<text x="${pad}" y="12" fill="var(--indigo)" style="fill:var(--indigo);font-weight:700">● ${t('opened2')}</text><text x="${pad + 90}" y="12" style="fill:var(--accent);font-weight:700">● ${t('resolved')}</text>`;
+}
+
+/* ---------- KB ---------- */
+function renderKb(){
+  const q = ($('#kbq').value || '').toLowerCase();
+  $('#kbList').innerHTML = KB.filter(a => !q || (a[lang][0] + ' ' + a[lang][1].join(' ') + ' ' + catName(a.cat)).toLowerCase().includes(q)).map(a => `<article class="card art" id="kb-${a.id}"><h3><i>${a.ico}</i>${esc(a[lang][0])}</h3><div class="tag">${catName(a.cat)}</div><ol>${a[lang][1].map(s => `<li>${esc(s)}</li>`).join('')}</ol></article>`).join('');
+}
+$('#kbq').addEventListener('input', renderKb);
+$('#resetDemo').addEventListener('click', e => { e.preventDefault(); seq = 1000; seed(); renderAll(); toast(t('reset')); });
+
+function renderAll(){ renderBoard(); renderMatrix(); renderKb(); if (!$('#metrics').hidden) renderMetrics(); }
+applyTheme(); applyLang(); showTab(store.get('tab', 'board'));
+setInterval(renderBoard, 60000);
+})();
+</script>
+</body>
+</html>
